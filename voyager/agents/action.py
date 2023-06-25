@@ -208,6 +208,7 @@ class ActionAgent:
                 babel = require("@babel/core")
                 babel_generator = require("@babel/generator").default
 
+                # babel是一个js编译器 主要是在这里编译gpt生成的代码 为了兼容
                 code_pattern = re.compile(r"```(?:javascript|js)(.*?)```", re.DOTALL)
                 code = "\n".join(code_pattern.findall(message.content))
                 parsed = babel.parse(code)

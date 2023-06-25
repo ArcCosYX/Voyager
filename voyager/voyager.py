@@ -2,6 +2,7 @@ import copy
 import json
 import os
 import time
+
 from typing import Dict
 
 import voyager.utils as U
@@ -25,12 +26,14 @@ class Voyager:
         env_request_timeout: int = 600,
         max_iterations: int = 160,
         reset_placed_if_failed: bool = False,
+        # action_agent_model_name: str = "gpt-3.5-turbo", # 4
         action_agent_model_name: str = "gpt-4",
         action_agent_temperature: float = 0,
         action_agent_task_max_retries: int = 4,
         action_agent_show_chat_log: bool = True,
         action_agent_show_execution_error: bool = True,
-        curriculum_agent_model_name: str = "gpt-4",
+        # curriculum_agent_model_name: str = "gpt-3.5-turbo", # 4
+        curriculum_agent_model_name: str = "gpt-4", # 4
         curriculum_agent_temperature: float = 0,
         curriculum_agent_qa_model_name: str = "gpt-3.5-turbo",
         curriculum_agent_qa_temperature: float = 0,
@@ -38,12 +41,13 @@ class Voyager:
         curriculum_agent_core_inventory_items: str = r".*_log|.*_planks|stick|crafting_table|furnace"
         r"|cobblestone|dirt|coal|.*_pickaxe|.*_sword|.*_axe",
         curriculum_agent_mode: str = "auto",
-        critic_agent_model_name: str = "gpt-4",
+        # critic_agent_model_name: str = "gpt-3.5-turbo",# 4
+        critic_agent_model_name: str = "gpt-4",# 4
         critic_agent_temperature: float = 0,
         critic_agent_mode: str = "auto",
         skill_manager_model_name: str = "gpt-3.5-turbo",
         skill_manager_temperature: float = 0,
-        skill_manager_retrieval_top_k: int = 5,
+        skill_manager_retrieval_top_k: int = 2,
         openai_api_request_timeout: int = 240,
         ckpt_dir: str = "ckpt",
         skill_library_dir: str = None,
@@ -183,6 +187,7 @@ class Voyager:
         )
         skills = self.skill_manager.retrieve_skills(query=self.context)
         print(
+            # 黄色
             f"\033[33mRender Action Agent system message with {len(skills)} skills\033[0m"
         )
         system_message = self.action_agent.render_system_message(skills=skills)
@@ -203,20 +208,27 @@ class Voyager:
     def step(self):
         if self.action_agent_rollout_num_iter < 0:
             raise ValueError("Agent must be reset before stepping")
+        print("systemMessage",self.messages[0].content)
+        print("humanMessage",self.messages[1].content)
         ai_message = self.action_agent.llm(self.messages)
         print(f"\033[34m****Action Agent ai message****\n{ai_message.content}\033[0m")
         self.conversations.append(
             (self.messages[0].content, self.messages[1].content, ai_message.content)
         )
         parsed_result = self.action_agent.process_ai_message(message=ai_message)
+        # parsed_result 是ai生成的代码
         success = False
         if isinstance(parsed_result, dict):
+            # 如果parsed_result 是字典
+            print("parsed_result:",parsed_result)
             code = parsed_result["program_code"] + "\n" + parsed_result["exec_code"]
+            # events是当前状态
             events = self.env.step(
                 code,
                 programs=self.skill_manager.programs,
             )
             self.recorder.record(events, self.task)
+            # 更新 最近的箱子的信息
             self.action_agent.update_chest_memory(events[-1][1]["nearbyChests"])
             success, critique = self.critic_agent.check_task_success(
                 events=events,
@@ -236,6 +248,7 @@ class Voyager:
                         position = event["status"]["position"]
                         blocks.append(block)
                         positions.append(position)
+                # 如果没成功 恢复现场
                 new_events = self.env.step(
                     f"await givePlacedItemBack(bot, {U.json_dumps(blocks)}, {U.json_dumps(positions)})",
                     programs=self.skill_manager.programs,
@@ -280,6 +293,7 @@ class Voyager:
             info["program_name"] = parsed_result["program_name"]
         else:
             print(
+                # 绿色
                 f"\033[32m****Action Agent human message****\n{self.messages[-1].content}\033[0m"
             )
         return self.messages, 0, done, info

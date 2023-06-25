@@ -115,6 +115,7 @@ class SkillManager:
         k = min(self.vectordb._collection.count(), self.retrieval_top_k)
         if k == 0:
             return []
+        # 调用向量数据库的 "similarity_search_with_score" 方法，根据查询检索前 k 个最相似的技能，并将结果存储在变量 "docs_and_scores" 中
         print(f"\033[33mSkill Manager retrieving for {k} skills\033[0m")
         docs_and_scores = self.vectordb.similarity_search_with_score(query, k=k)
         print(
